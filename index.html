@@ -204,16 +204,32 @@
         .btn-submit { background: #059669; color: #fff; }
         .btn-submit:disabled { background: #333; color: #666; }
         
-        .progress-bar {
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 2px;
+        .progress-container {
+            display: none;
             margin-bottom: 20px;
+            text-align: center;
+        }
+        .progress-container.active { display: block; }
+        .progress-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4ade80;
+            margin-bottom: 10px;
+        }
+        .progress-status {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 15px;
+        }
+        .progress-bar {
+            height: 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
             overflow: hidden;
         }
         .progress-bar .fill {
             height: 100%;
-            background: #4ade80;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
             width: 0%;
             transition: width 0.3s;
         }
@@ -341,8 +357,12 @@
             </div>
             <input type="file" id="fileInput" multiple accept="image/*" onchange="handleFiles(this.files)">
             
-            <div class="progress-bar" id="progressBar" style="display:none;">
-                <div class="fill" id="progressFill"></div>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-text" id="progressText">0%</div>
+                <div class="progress-status" id="progressStatus">처리 중... 0/0</div>
+                <div class="progress-bar">
+                    <div class="fill" id="progressFill"></div>
+                </div>
             </div>
             
             <div class="preview-grid" id="previewGrid"></div>
@@ -428,7 +448,7 @@
         uploadFiles = [];
         document.getElementById('previewGrid').innerHTML = '';
         document.getElementById('uploadModal').classList.remove('active');
-        document.getElementById('progressBar').style.display = 'none';
+        document.getElementById('progressContainer').classList.remove('active');
         document.getElementById('fileInput').value = '';
     }
     
@@ -479,8 +499,11 @@
         const pending = uploadFiles.filter(f => f.status === 'pending');
         if (pending.length === 0) return;
         
-        document.getElementById('progressBar').style.display = 'block';
+        document.getElementById('progressContainer').classList.add('active');
         document.getElementById('submitBtn').disabled = true;
+        document.getElementById('progressText').textContent = '0%';
+        document.getElementById('progressStatus').textContent = `처리 중... 0/${pending.length}`;
+        document.getElementById('progressFill').style.width = '0%';
         
         let completed = 0, success = 0;
         
@@ -507,10 +530,14 @@
                 uploadFiles[i].status = 'error';
             }
             completed++;
-            document.getElementById('progressFill').style.width = (completed / pending.length * 100) + '%';
+            const pct = Math.round(completed / pending.length * 100);
+            document.getElementById('progressText').textContent = pct + '%';
+            document.getElementById('progressStatus').textContent = `처리 중... ${completed}/${pending.length}`;
+            document.getElementById('progressFill').style.width = pct + '%';
             updatePreview();
         }
         
+        document.getElementById('progressStatus').textContent = `완료! ${success}/${pending.length}건 성공`;
         toast(`완료! ${success}/${pending.length}건 입고`, success === pending.length ? 'success' : 'error');
         document.getElementById('submitBtn').disabled = false;
     }
