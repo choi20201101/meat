@@ -526,7 +526,7 @@
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
-        const image = canvas.toDataURL('image/jpeg', 0.85);
+        const image = canvas.toDataURL('image/jpeg', 0.95);
         const branch = document.getElementById('branchSelect').value;
         closeCamera();
         
