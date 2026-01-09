@@ -604,6 +604,7 @@
             }
         }
         
+        const outId = pendingOutData.row.ID;  // 먼저 저장!
         closeRemainModal();
         loading('출고 처리 중...');
         
@@ -613,7 +614,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'out_confirm',
-                    id: pendingOutData.row.ID,
+                    id: outId,
                     remaining: remaining
                 })
             });
