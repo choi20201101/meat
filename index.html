@@ -49,6 +49,7 @@
         .btn-green { background: linear-gradient(145deg, #059669, #047857); color: white; }
         .btn-orange { background: linear-gradient(145deg, #ea580c, #c2410c); color: white; }
         .btn-blue { background: linear-gradient(145deg, #0891b2, #0e7490); color: white; }
+        .btn-red { background: linear-gradient(145deg, #dc2626, #b91c1c); color: white; }
         
         .modal {
             display: none;
@@ -275,6 +276,87 @@
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.success { background: rgba(5, 150, 105, 0.95); }
         .toast.error { background: rgba(220, 38, 38, 0.95); }
+        
+        .remain-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 2500;
+            justify-content: center;
+            align-items: center;
+        }
+        .remain-modal.active { display: flex; }
+        .remain-content {
+            background: #1e1e2e;
+            border-radius: 20px;
+            padding: 25px;
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+        }
+        .remain-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .remain-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .remain-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .remain-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-full { background: #dc2626; color: white; }
+        .btn-partial { background: #ea580c; color: white; }
+        .btn-confirm { background: #059669; color: white; margin-top: 10px; }
+        .remain-input-wrap {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .remain-input-wrap label {
+            display: block;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        .remain-input-wrap input {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+        }
+        .remain-close {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #888;
+            padding: 12px;
+            border-radius: 10px;
+            width: 100%;
+            font-size: 14px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -301,7 +383,7 @@
         
         <div class="section">
             <div class="section-title">입고</div>
-            <button class="btn btn-green" onclick="openCamera()">
+            <button class="btn btn-green" onclick="openCamera('in')">
                 <span class="icon">📷</span>
                 <span class="text">
                     <span class="title">라벨 촬영 입고</span>
@@ -314,6 +396,18 @@
                 <span class="text">
                     <span class="title">대량 업로드</span>
                     <span class="desc">여러 장 한번에 (최대 20장)</span>
+                </span>
+                <span class="arrow">›</span>
+            </button>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">출고</div>
+            <button class="btn btn-red" onclick="openCamera('out')">
+                <span class="icon">📤</span>
+                <span class="text">
+                    <span class="title">라벨 촬영 출고</span>
+                    <span class="desc">FIFO - 가장 오래된 재고 자동 차감</span>
                 </span>
                 <span class="arrow">›</span>
             </button>
@@ -381,18 +475,40 @@
     
     <div class="toast" id="toast"></div>
     
+    <!-- 잔량 입력 모달 -->
+    <div class="remain-modal" id="remainModal">
+        <div class="remain-content">
+            <div class="remain-header">📤 출고 확인</div>
+            <div class="remain-info" id="remainInfo">채끝 1++ (2.3kg)</div>
+            <div class="remain-buttons">
+                <button class="remain-btn btn-full" onclick="confirmOut(0)">전체 소진</button>
+                <button class="remain-btn btn-partial" onclick="showRemainInput()">일부 사용</button>
+            </div>
+            <div class="remain-input-wrap" id="remainInputWrap" style="display:none;">
+                <label>남은 중량 (kg)</label>
+                <input type="number" id="remainInput" step="0.1" min="0" placeholder="예: 1.5">
+                <button class="remain-btn btn-confirm" onclick="confirmOut()">확인</button>
+            </div>
+            <button class="remain-close" onclick="closeRemainModal()">취소</button>
+        </div>
+    </div>
+    
     <script>
-    const CONFIG = { webhookUrl: 'https://cjm123.app.n8n.cloud/webhook/meat' };
+    const CONFIG = { webhookUrl: 'https://cjm123.app.n8n.cloud/webhook-test/meat' };
     let stream = null;
     let uploadFiles = [];
+    let currentMode = 'in'; // 'in' 또는 'out'
+    let pendingOutData = null; // 출고 대기 데이터
     
-    async function openCamera() {
+    async function openCamera(mode) {
+        currentMode = mode;
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
             });
             document.getElementById('video').srcObject = stream;
             document.getElementById('cameraModal').classList.add('active');
+            document.querySelector('.modal-title').textContent = mode === 'in' ? '📷 입고 촬영' : '📤 출고 촬영';
         } catch (e) {
             toast('카메라 권한이 필요합니다', 'error');
         }
@@ -413,11 +529,16 @@
         const image = canvas.toDataURL('image/jpeg', 0.85);
         const branch = document.getElementById('branchSelect').value;
         closeCamera();
-        await sendSingle(image, branch);
+        
+        if (currentMode === 'in') {
+            await sendIn(image, branch);
+        } else {
+            await findStock(image, branch);
+        }
     }
     
-    async function sendSingle(image, branch) {
-        loading('라벨 인식 중...');
+    async function sendIn(image, branch) {
+        loading('입고 처리 중...');
         try {
             const res = await fetch(CONFIG.webhookUrl, {
                 method: 'POST',
@@ -429,6 +550,78 @@
             if (data.success) {
                 const d = data.data;
                 toast('입고 완료! ' + (d.part||'') + ' ' + (d.grade||'') + ' ' + (d.weight||'') + 'kg', 'success');
+            } else {
+                toast(data.message || '처리 실패', 'error');
+            }
+        } catch (e) {
+            hideLoading();
+            toast('서버 연결 실패', 'error');
+        }
+    }
+    
+    async function findStock(image, branch) {
+        loading('재고 검색 중...');
+        try {
+            const res = await fetch(CONFIG.webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'out_find', branch, image })
+            });
+            const data = await res.json();
+            hideLoading();
+            if (data.success && data.found) {
+                pendingOutData = data;
+                const d = data.row;
+                document.getElementById('remainInfo').textContent = 
+                    `${d.부위명} ${d.등급} (${d.현재중량}kg)`;
+                document.getElementById('remainInputWrap').style.display = 'none';
+                document.getElementById('remainInput').value = '';
+                document.getElementById('remainModal').classList.add('active');
+            } else {
+                toast(data.message || '해당 재고 없음', 'error');
+            }
+        } catch (e) {
+            hideLoading();
+            toast('서버 연결 실패', 'error');
+        }
+    }
+    
+    function showRemainInput() {
+        document.getElementById('remainInputWrap').style.display = 'block';
+    }
+    
+    function closeRemainModal() {
+        document.getElementById('remainModal').classList.remove('active');
+        pendingOutData = null;
+    }
+    
+    async function confirmOut(remaining) {
+        if (remaining === undefined) {
+            remaining = parseFloat(document.getElementById('remainInput').value);
+            if (isNaN(remaining) || remaining < 0) {
+                toast('올바른 중량을 입력하세요', 'error');
+                return;
+            }
+        }
+        
+        closeRemainModal();
+        loading('출고 처리 중...');
+        
+        try {
+            const res = await fetch(CONFIG.webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'out_confirm',
+                    id: pendingOutData.row.ID,
+                    remaining: remaining
+                })
+            });
+            const data = await res.json();
+            hideLoading();
+            if (data.success) {
+                const status = remaining === 0 ? '소진' : '사용중';
+                toast(`출고 완료! (${status}, 잔량: ${remaining}kg)`, 'success');
             } else {
                 toast(data.message || '처리 실패', 'error');
             }
